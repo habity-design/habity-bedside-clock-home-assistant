@@ -29,6 +29,7 @@ ALARM_STOPPED = "stopped"
 # Entity unique ID suffixes
 ENTITY_ALARM_SWITCH = "alarm_enabled"
 ENTITY_NEXT_ALARM = "next_alarm"
+ENTITY_ALARM_TIME = "alarm_time"
 ENTITY_SNOOZE_BTN = "snooze_btn"
 ENTITY_STOP_BTN = "stop_btn"
 ENTITY_ALARM_EVENT = "alarm_event"
