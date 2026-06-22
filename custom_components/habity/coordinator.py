@@ -73,3 +73,34 @@ class HabityCoordinator(DataUpdateCoordinator):
                 self.async_set_updated_data(updated)
         except aiohttp.ClientError as err:
             _LOGGER.error("Failed to POST /alarm to Habity: %s", err)
+
+    async def async_get_ota_status(self) -> dict:
+        """GET /api/ota/status to retrieve firmware update state."""
+        url = f"{self._scheme}://{self.host}/api/ota/status"
+
+        try:
+            async with self._session.get(
+                url,
+                timeout=aiohttp.ClientTimeout(total=5),
+            ) as resp:
+                resp.raise_for_status()
+                return await resp.json()
+        except aiohttp.ClientError as err:
+            raise UpdateFailed(
+                f"Error retrieving Habity OTA status from {self.host}: {err}"
+            ) from err
+
+    async def async_check_ota(self) -> None:
+        """GET /api/ota/check to trigger an update check."""
+        url = f"{self._scheme}://{self.host}/api/ota/check"
+
+        try:
+            async with self._session.get(
+                url,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                resp.raise_for_status()
+        except aiohttp.ClientError as err:
+            raise UpdateFailed(
+                f"Error checking Habity OTA updates from {self.host}: {err}"
+            ) from err
