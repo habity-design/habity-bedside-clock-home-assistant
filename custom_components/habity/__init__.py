@@ -13,7 +13,7 @@ from .udp_listener import HA_EVENT_UDP, async_start_udp_listener
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.SWITCH, Platform.SENSOR]
+PLATFORMS = [Platform.SWITCH, Platform.SENSOR, Platform.TIME]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
