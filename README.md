@@ -3,7 +3,7 @@
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2023.1%2B-blue.svg)](https://www.home-assistant.io)
 
-A Home Assistant integration for the [Habity Bedside Clock](https://habity.com), exposing alarm time and button presses via local HTTP & UDP.
+A Home Assistant integration for the [Habity Bedside Clock](https://habity.design), exposing alarm time and button presses via local HTTP & UDP.
 
 ---
 
