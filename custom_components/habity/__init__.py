@@ -1,6 +1,7 @@
 """Habity integration."""
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from homeassistant.config_entries import ConfigEntry
@@ -31,9 +32,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     }
 
     # Start the shared UDP listener only once — reused across all config entries.
-    if "stop_udp" not in hass.data[DOMAIN]:
-        stop_udp = await async_start_udp_listener(hass, _make_udp_callback(hass))
-        hass.data[DOMAIN]["stop_udp"] = stop_udp
+    # HA sets up config entries concurrently, so guard with a lock: without it,
+    # two entries can both see "stop_udp" missing and race to bind the port.
+    lock = hass.data[DOMAIN].setdefault("_udp_setup_lock", asyncio.Lock())
+    async with lock:
+        if "stop_udp" not in hass.data[DOMAIN]:
+            stop_udp = await async_start_udp_listener(hass, _make_udp_callback(hass))
+            hass.data[DOMAIN]["stop_udp"] = stop_udp
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -50,7 +55,7 @@ def _make_udp_callback(hass: HomeAssistant):
         # Find the entry whose host matches the packet's source IP.
         matched_entry_id = None
         for entry_id, data in hass.data[DOMAIN].items():
-            if entry_id == "stop_udp":
+            if entry_id in ("stop_udp", "_udp_setup_lock"):
                 continue
             if data["coordinator"].host == source_ip:
                 matched_entry_id = entry_id
@@ -97,7 +102,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN].pop(entry.entry_id)
 
         # Stop the shared UDP listener only when the last entry is removed.
-        remaining = [k for k in hass.data[DOMAIN] if k != "stop_udp"]
+        remaining = [
+            k for k in hass.data[DOMAIN] if k not in ("stop_udp", "_udp_setup_lock")
+        ]
         if not remaining:
             stop_udp = hass.data[DOMAIN].pop("stop_udp", None)
             if stop_udp:
