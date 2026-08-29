@@ -15,6 +15,7 @@ POLL_INTERVAL = 30
 UDP_TYPE_SNOOZE_BTN = "snooze_btn"
 UDP_TYPE_STOP_BTN = "stop_btn"
 UDP_TYPE_EVENT = "event"
+UDP_TYPE_LIGHT = "light"
 
 # Button states
 BTN_PRESSED = "pressed"
@@ -33,3 +34,4 @@ ENTITY_ALARM_TIME = "alarm_time"
 ENTITY_SNOOZE_BTN = "snooze_btn"
 ENTITY_STOP_BTN = "stop_btn"
 ENTITY_ALARM_EVENT = "alarm_event"
+ENTITY_LIGHT_SWITCH = "light_switch"

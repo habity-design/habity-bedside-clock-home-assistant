@@ -73,3 +73,29 @@ class HabityCoordinator(DataUpdateCoordinator):
                 self.async_set_updated_data(updated)
         except aiohttp.ClientError as err:
             _LOGGER.error("Failed to POST /alarm to Habity: %s", err)
+
+    async def async_set_light(self, light_on: bool) -> None:
+        """POST /light to control the front light (LED + backlight) on the device."""
+        url = f"{self._scheme}://{self.host}/light"
+        try:
+            async with self._session.post(
+                url,
+                json={"light_on": light_on},
+                timeout=aiohttp.ClientTimeout(total=5),
+            ) as resp:
+                resp.raise_for_status()
+                updated = await resp.json()
+                self.async_set_updated_data(updated)
+        except aiohttp.ClientError as err:
+            _LOGGER.error("Failed to POST /light to Habity: %s", err)
+
+    def set_light_state(self, light_on: bool) -> None:
+        """Called by the UDP listener when the physical STOP button toggles the light.
+
+        Merges into the coordinator's cached data (same "light_on" key /state
+        returns) so LightSwitch updates instantly instead of waiting for the
+        next 30s poll — mirrors how async_set_alarm's POST response updates it.
+        """
+        if self.data is None:
+            return
+        self.async_set_updated_data({**self.data, "light_on": light_on})

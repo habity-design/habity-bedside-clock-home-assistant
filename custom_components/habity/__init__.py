@@ -8,7 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_HOST, CONF_USE_SSL, DOMAIN
+from .const import CONF_HOST, CONF_USE_SSL, DOMAIN, UDP_TYPE_LIGHT
 from .coordinator import HabityCoordinator
 from .udp_listener import HA_EVENT_UDP, async_start_udp_listener
 
@@ -73,6 +73,13 @@ def _make_udp_callback(hass: HomeAssistant):
         if event_type == "audio":
             coordinator.set_audio_playing(state == "playing")
             return
+
+        # Light state — merge into the coordinator's cached /state data so
+        # LightSwitch reflects physical STOP-button toggles instantly instead
+        # of waiting for the next poll. Still falls through to fire the
+        # generic bus event below, unlike "audio".
+        if event_type == UDP_TYPE_LIGHT:
+            coordinator.set_light_state(state == "on")
 
         # Fire a generic HA event for automations.
         hass.bus.fire(
