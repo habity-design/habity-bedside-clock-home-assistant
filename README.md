@@ -13,6 +13,7 @@ A Home Assistant integration for the [Habity Bedside Clock](https://habity.desig
 - 🕐 Exposes next alarm time
 - ⏰ Set next alarm time
 - ⚙️ Toggle next alarm on/off
+- 💡 Toggle the nightlight
 - ⚡ Instant button press update
 
 ---
