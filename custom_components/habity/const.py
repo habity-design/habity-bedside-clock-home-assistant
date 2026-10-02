@@ -16,6 +16,7 @@ UDP_TYPE_SNOOZE_BTN = "snooze_btn"
 UDP_TYPE_STOP_BTN = "stop_btn"
 UDP_TYPE_EVENT = "event"
 UDP_TYPE_LIGHT = "light"
+UDP_TYPE_ALARM_ENABLED = "alarm_enabled"
 
 # Button states
 BTN_PRESSED = "pressed"
