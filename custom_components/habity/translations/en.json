@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to your Habity bedside clock",
+        "description": "Enter the local IP address of your Habity bedside clock. Make sure it's on the same network as Home Assistant.",
+        "data": {
+          "host": "Device IP Address"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to the device. Check the IP address and make sure the clock is connected to power.",
+      "timeout": "Connection timed out. The device did not respond in time.",
+      "invalid_response": "The device responded but the data looks wrong. Make sure it's running the correct firmware.",
+      "unknown": "Unexpected error. Check your Home Assistant logs for details."
+    },
+    "abort": {
+      "already_configured": "This Habity bedside clock is already configured."
+    }
+  }
+}
