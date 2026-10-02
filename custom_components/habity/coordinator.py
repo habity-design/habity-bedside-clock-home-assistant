@@ -6,6 +6,7 @@ from datetime import timedelta
 
 import aiohttp
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -51,6 +52,18 @@ class HabityCoordinator(DataUpdateCoordinator):
                 resp.raise_for_status()
                 return await resp.json()
         except aiohttp.ClientError as err:
+            # On battery, WiFi (and this REST server) is normally off -- the device only
+            # wakes it briefly and on-demand, so most polls are expected to miss, not a
+            # fault. Once we've reached it at least once, keep showing that last-known
+            # state instead of flapping entities unavailable every 30s. Only surface a
+            # real UpdateFailed if we've never reached it at all (e.g. during setup).
+            if self.data is not None:
+                _LOGGER.debug(
+                    "Habity at %s unreachable, keeping last-known state (likely asleep on battery): %s",
+                    self.host,
+                    err,
+                )
+                return self.data
             raise UpdateFailed(f"Error communicating with Habity at {self.host}: {err}") from err
 
     async def async_set_alarm(self, alarm_enabled: bool | None = None, next_alarm: str | None = None) -> None:
@@ -72,7 +85,10 @@ class HabityCoordinator(DataUpdateCoordinator):
                 updated = await resp.json()
                 self.async_set_updated_data(updated)
         except aiohttp.ClientError as err:
-            _LOGGER.error("Failed to POST /alarm to Habity: %s", err)
+            _LOGGER.debug("Failed to POST /alarm to Habity: %s", err)
+            raise HomeAssistantError(
+                f"Habity at {self.host} is unreachable (device may be asleep on battery) — command not sent"
+            ) from err
 
     async def async_set_light(self, light_on: bool) -> None:
         """POST /light to control the front light (LED + backlight) on the device."""
@@ -87,7 +103,10 @@ class HabityCoordinator(DataUpdateCoordinator):
                 updated = await resp.json()
                 self.async_set_updated_data(updated)
         except aiohttp.ClientError as err:
-            _LOGGER.error("Failed to POST /light to Habity: %s", err)
+            _LOGGER.debug("Failed to POST /light to Habity: %s", err)
+            raise HomeAssistantError(
+                f"Habity at {self.host} is unreachable (device may be asleep on battery) — command not sent"
+            ) from err
 
     def set_light_state(self, light_on: bool) -> None:
         """Called by the UDP listener when the physical STOP button toggles the light.
@@ -99,3 +118,16 @@ class HabityCoordinator(DataUpdateCoordinator):
         if self.data is None:
             return
         self.async_set_updated_data({**self.data, "light_on": light_on})
+
+    def set_alarm_enabled_state(self, alarm_enabled: bool) -> None:
+        """Called by the UDP listener when the alarm schedule is toggled on-device.
+
+        Merges into the coordinator's cached data (same "alarm_enabled" key
+        /state returns) so AlarmSwitch updates instantly instead of waiting
+        for the next 30s poll — mirrors set_light_state above. Deliberately a
+        separate wire type from the "event" alarm-ringing lifecycle so this
+        never touches the Alarm Event sensor.
+        """
+        if self.data is None:
+            return
+        self.async_set_updated_data({**self.data, "alarm_enabled": alarm_enabled})
