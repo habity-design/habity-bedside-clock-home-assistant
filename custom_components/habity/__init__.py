@@ -8,13 +8,33 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_HOST, CONF_USE_SSL, DOMAIN, UDP_TYPE_LIGHT
+from .const import CONF_HOST, CONF_USE_SSL, DOMAIN, UDP_TYPE_ALARM_ENABLED, UDP_TYPE_LIGHT
 from .coordinator import HabityCoordinator
 from .udp_listener import HA_EVENT_UDP, async_start_udp_listener
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.SWITCH, Platform.SENSOR, Platform.TIME]
+
+# hass.data[DOMAIN] keys that aren't a config entry's own data -- excluded
+# whenever something iterates that dict looking for real entries.
+_NON_ENTRY_KEYS = ("stop_udp", "_udp_setup_lock")
+
+
+async def ensure_udp_listener(hass: HomeAssistant) -> None:
+    """Start the shared UDP listener if it isn't already running.
+
+    Idempotent and safe to call from config_flow (before any entry exists)
+    as well as from async_setup_entry -- both need it, and only one bind
+    should ever happen. Guarded by a lock since entries can set up
+    concurrently and would otherwise race to bind the port.
+    """
+    hass.data.setdefault(DOMAIN, {})
+    lock = hass.data[DOMAIN].setdefault("_udp_setup_lock", asyncio.Lock())
+    async with lock:
+        if "stop_udp" not in hass.data[DOMAIN]:
+            stop_udp = await async_start_udp_listener(hass, _make_udp_callback(hass))
+            hass.data[DOMAIN]["stop_udp"] = stop_udp
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -23,7 +43,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     use_ssl = entry.data.get(CONF_USE_SSL, False)
 
     coordinator = HabityCoordinator(hass, host, use_ssl=use_ssl)
-    await coordinator.async_config_entry_first_refresh()
+    # Deliberately async_refresh(), not async_config_entry_first_refresh(): the
+    # latter raises ConfigEntryNotReady (blocking this whole setup) if the very
+    # first poll fails -- but on battery the device only wakes Wi-Fi on-demand
+    # (a button press), so it's normally unreachable exactly when HA restarts.
+    # async_refresh() tolerates that: entities come up "unavailable" and
+    # populate themselves on the next successful poll or UDP push, instead of
+    # requiring the user to plug in power to force a Wi-Fi wake just so setup
+    # can complete. Every entity already guards on coordinator.data is None
+    # (sensor.py/switch.py/time.py) for exactly this case.
+    await coordinator.async_refresh()
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {
@@ -31,14 +60,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "udp_sensors": {},
     }
 
-    # Start the shared UDP listener only once — reused across all config entries.
-    # HA sets up config entries concurrently, so guard with a lock: without it,
-    # two entries can both see "stop_udp" missing and race to bind the port.
-    lock = hass.data[DOMAIN].setdefault("_udp_setup_lock", asyncio.Lock())
-    async with lock:
-        if "stop_udp" not in hass.data[DOMAIN]:
-            stop_udp = await async_start_udp_listener(hass, _make_udp_callback(hass))
-            hass.data[DOMAIN]["stop_udp"] = stop_udp
+    await ensure_udp_listener(hass)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -55,7 +77,7 @@ def _make_udp_callback(hass: HomeAssistant):
         # Find the entry whose host matches the packet's source IP.
         matched_entry_id = None
         for entry_id, data in hass.data[DOMAIN].items():
-            if entry_id in ("stop_udp", "_udp_setup_lock"):
+            if entry_id in _NON_ENTRY_KEYS:
                 continue
             if data["coordinator"].host == source_ip:
                 matched_entry_id = entry_id
@@ -80,6 +102,13 @@ def _make_udp_callback(hass: HomeAssistant):
         # generic bus event below, unlike "audio".
         if event_type == UDP_TYPE_LIGHT:
             coordinator.set_light_state(state == "on")
+
+        # Alarm schedule on/off — merge into cached /state data so AlarmSwitch
+        # updates instantly. Separate from "event" (the alarm-ringing
+        # lifecycle) so this never touches the Alarm Event sensor. Still
+        # falls through to fire the generic bus event below, unlike "audio".
+        if event_type == UDP_TYPE_ALARM_ENABLED:
+            coordinator.set_alarm_enabled_state(state == "on")
 
         # Fire a generic HA event for automations.
         hass.bus.fire(
@@ -110,7 +139,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         # Stop the shared UDP listener only when the last entry is removed.
         remaining = [
-            k for k in hass.data[DOMAIN] if k not in ("stop_udp", "_udp_setup_lock")
+            k for k in hass.data[DOMAIN] if k not in _NON_ENTRY_KEYS
         ]
         if not remaining:
             stop_udp = hass.data[DOMAIN].pop("stop_udp", None)
