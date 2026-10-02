@@ -17,7 +17,8 @@ A Home Assistant integration for the [Habity Bedside Clock](https://habity.desig
 - ⚡ Instant button press update
 
 
-**Features that works on battery alone**
+Features that works on battery alone 🔋
+
 To use all features of this integration, the Habity Bedside Clock must be connected to power. On battery alone, the clock disconnects from Wi-Fi to save power and only reconnects briefly to broadcast events such as button presses, active alarms, and the next alarm time.
 Sending commands to the clock (for example, toggling the light or changing the alarm time) requires constant power.
 ---
