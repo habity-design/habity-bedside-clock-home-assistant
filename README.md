@@ -36,24 +36,10 @@ Sending commands to the clock (for example, toggling the light or changing the a
 
 ### Via HACS (recommended)
 
-The integration is not yet in the default HACS store, but you can add it right now as a **custom repository** — this takes about 30 seconds.
+Available in HACS. Search for "Habity bedside clock" to download.
 
-**Step 1 — Add the custom repository**
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=habity-design&repository=habity-bedside-clock-home-assistant&category=integration)
 
-[![Add to HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=habity-design&repository=habity-bedside-clock-home-assistant&category=integration)
-
-Click the badge above, or do it manually:
-
-1. Open **HACS** in your Home Assistant sidebar
-2. Click the **⋮** menu (top right) and select **Custom repositories**
-3. Paste this URL: `https://github.com/habity-design/habity-bedside-clock-home-assistant`
-4. Set the category to **Integration** and click **Add**
-
-**Step 2 — Install**
-
-1. Search for **Habity** in HACS and click it
-2. Click **Download** and confirm
-3. Restart Home Assistant
 
 
 ### Manual
